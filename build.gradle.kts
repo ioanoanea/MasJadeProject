@@ -1,6 +1,20 @@
 plugins {
     id("java")
     kotlin("jvm")
+    id("application")
+}
+
+application {
+    mainClass.set("jade.Boot")
+}
+
+// Configure run task for Jade arguments
+tasks.named<JavaExec>("run") {
+    args = listOf(
+        "-gui",
+        "-agents",
+        "agent1:org.example.DiscoveryAgent;agent2:org.example.DiscoveryAgent;agent3:org.example.DiscoveryAgent"
+    )
 }
 
 group = "org.example"
@@ -20,6 +34,7 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+
 kotlin {
     jvmToolchain(23)
 }
