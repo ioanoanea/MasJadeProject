@@ -13,7 +13,7 @@ tasks.named<JavaExec>("run") {
     args = listOf(
         "-gui",
         "-agents",
-        "agent1:org.example.DiscoveryAgent;agent2:org.example.DiscoveryAgent;agent3:org.example.DiscoveryAgent"
+        "agent1:org.example.DiscoveryAgent;agent2:org.example.DiscoveryAgent;agent3:org.example.DiscoveryAgent;agent4:org.example.DiscoveryAgent;agent5:org.example.DiscoveryAgent"
     )
 }
 

@@ -22,14 +22,23 @@ class GridWorld private constructor(val width: Int, val height: Int) {
     }
 
 
-  // Thread-safe operations
-  fun addAgent(x: Int, y: Int, agentName: String) = lock.withLock {
-      grid[x][y].add(agentName)
-  }
+    // Thread-safe operations
+    fun addAgent(x: Int, y: Int, agentName: String) {
+        lock.lock()
+        grid[x][y].add(agentName)
+        lock.unlock()
+    }
 
-    fun moveAgent(fromX: Int, fromY: Int, toX: Int, toY: Int, agentName: String) = lock.withLock {
-        grid[fromX][fromY].remove(agentName)
-        grid[toX][toY].add(agentName)
+    fun moveAgent(fromX: Int, fromY: Int, toX: Int, toY: Int, agentName: String): Boolean {
+        if (grid[toX][toY].isEmpty()) {
+            lock.lock()
+            grid[fromX][fromY].remove(agentName)
+            grid[toX][toY].add(agentName)
+            lock.unlock()
+            return true
+        } else {
+            return false
+        }
     }
 
     private fun removeAgent(x: Int, y: Int, agentName: String) {
@@ -37,30 +46,35 @@ class GridWorld private constructor(val width: Int, val height: Int) {
     }
 
     fun getAgentsAt(x: Int, y: Int): Set<String> {
-        return lock.withLock {
-            grid[x][y].toSet()
-        }
+        lock.lock()
+        return grid[x][y].toSet()
+        lock.unlock()
     }
 
     fun printGrid() {
-        lock.withLock {
-            println("\nCurrent Grid State:")
-            grid.forEachIndexed { x, column ->
-                column.forEachIndexed { y, agents ->
-                    if (agents.isNotEmpty()) {
-                        println("($x,$y): ${agents.joinToString()}")
-                    }
+        // lock.lock()
+        // println("\nCurrent Grid State:")
+        // grid.forEachIndexed { x, column ->
+        //     column.forEachIndexed { y, agents ->
+        //         if (agents.isNotEmpty()) {
+        //             println("($x,$y): ${agents.joinToString()}")
+        //         }
+        //     }
+        // }
+        // lock.unlock()
+        lock.lock()
+        println("\nCurrent Grid State:")
+        grid.forEachIndexed { x, column ->
+            column.forEachIndexed { y, agents ->
+                if (agents.isNotEmpty()) {
+                    print("X")
+                } else {
+                    print(" ")
                 }
             }
+            println()
         }
+        lock.unlock()
     }
 }
 
-private fun <T> ReentrantLock.withLock(action: () -> T): T {
-    lock()
-    try {
-        return action()
-    } finally {
-        unlock()
-    }
-}
