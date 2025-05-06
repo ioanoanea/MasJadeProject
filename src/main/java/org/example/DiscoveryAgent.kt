@@ -10,9 +10,12 @@ import jade.domain.FIPAAgentManagement.ServiceDescription
 import jade.domain.FIPAException
 import jade.lang.acl.ACLMessage
 import kotlin.random.Random
+import java.util.LinkedList
+import java.util.Queue
 
 class DiscoveryAgent : Agent() {
     private lateinit var grid: GridWorld
+    private var path: Queue<Pair<Int, Int>>? = LinkedList()
     private var x: Int = 0
     private var y: Int = 0
 
@@ -20,14 +23,12 @@ class DiscoveryAgent : Agent() {
     private val visitedMatrix: Array<Array<Boolean>> = Array(10) { Array(10) { false } }
 
     override fun setup() {
-        // Initialize or get the shared grid (10x10 by default)
         grid = GridWorld.getInstance()
         
         x = Random.nextInt(0, grid.width)
         y = Random.nextInt(0, grid.height)
         grid.addAgent(x, y, localName)
 
-        // Mark the agent's initial position as visited
         visitedMatrix[x][y] = true
 
         // Register this agent with the Directory Facilitator (DF)
@@ -38,14 +39,26 @@ class DiscoveryAgent : Agent() {
         // Add behavior to move and send position
         addBehaviour(object : TickerBehaviour(this, 2000) {
             override fun onTick() {
-                val newX = (x + listOf(-1, 0, 1).random()).coerceIn(0, grid.width - 1)
-                val newY = (y + listOf(-1, 0, 1).random()).coerceIn(0, grid.height - 1)
+                var newX: Int = x
+                var newY: Int = y
+                
+                val localPath = path // Copy the nullable path to a local variable
+                if (localPath != null && localPath.isNotEmpty()) {
+                    val nextPosition = localPath.poll()
+                    newX = nextPosition.first
+                    newY = nextPosition.second
+                } else {
+                    path = bfs()
+                    if (path == null) {
+                        println("$localName: All nodes visited.")
+                        return
+                    }
+                }
                 
                 if (grid.moveAgent(x, y, newX, newY, localName)) {
                     x = newX
                     y = newY
 
-                    // Mark the new position as visited
                     visitedMatrix[x][y] = true
 
                     sendPositionToAgents()
@@ -79,9 +92,48 @@ class DiscoveryAgent : Agent() {
         })
     }
 
+    // BFS to find the path to the closest unvisited node
+    private fun bfs(): Queue<Pair<Int, Int>>? {
+        val directions = listOf(
+            Pair(0, 1), Pair(1, 0), Pair(0, -1), Pair(-1, 0)
+        )
+        val path: Queue<Pair<Int, Int>> = LinkedList()
+
+        val queue: Queue<Pair<Int, Int>> = LinkedList()
+        queue.add(Pair(x, y))
+
+        val visited = mutableSetOf<Pair<Int, Int>>()
+        visited.add(Pair(x, y))
+
+        while (queue.isNotEmpty()) {
+            val (currentX, currentY) = queue.poll()
+            path.add(Pair(currentX, currentY))
+            if (!visitedMatrix[currentX][currentY]) {
+                return path
+            }
+
+            for ((dx, dy) in directions) {
+                val neighborX = currentX + dx
+                val neighborY = currentY + dy
+
+                if (neighborX in 0 until grid.width && neighborY in 0 until grid.height) {
+                    if (Pair(neighborX, neighborY) in visited) {
+                        continue
+                    }
+
+                    queue.add(Pair(neighborX, neighborY))
+                    visited.add(Pair(neighborX, neighborY))
+                }
+            }
+        }
+
+        // If no unvisited node is found, return null
+        return null
+    }
+
     private fun registerWithDF() {
         val dfd = DFAgentDescription()
-        dfd.name = aid // This agent's AID
+        dfd.name = aid
         val sd = ServiceDescription()
         sd.type = "discovery-agent"
         sd.name = localName
@@ -108,7 +160,7 @@ class DiscoveryAgent : Agent() {
         try {
             val result = DFService.search(this, template)
             for (dfd in result) {
-                if (dfd.name.localName != localName) { // Avoid sending the message to itself
+                if (dfd.name.localName != localName) {
                     message.addReceiver(dfd.name)
                 }
             }
