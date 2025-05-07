@@ -15,7 +15,7 @@ import java.util.Queue
 
 class DiscoveryAgent : Agent() {
     private lateinit var grid: GridWorld
-    private var path: Queue<Pair<Int, Int>>? = LinkedList()
+    private var path: Queue<Pair<Int, Int>> = LinkedList()
     private var x: Int = 0
     private var y: Int = 0
 
@@ -37,35 +37,41 @@ class DiscoveryAgent : Agent() {
         sendPositionToAgents()
 
         // Add behavior to move and send position
-        addBehaviour(object : TickerBehaviour(this, 2000) {
+        addBehaviour(object : TickerBehaviour(this, 200) {
             override fun onTick() {
                 var newX: Int = x
                 var newY: Int = y
-                
-                val localPath = path // Copy the nullable path to a local variable
-                if (localPath != null && localPath.isNotEmpty()) {
-                    val nextPosition = localPath.poll()
+
+                if (path.peek() == Pair(x, y)) {
+                    path.poll() // Remove the current position from the path
+                }
+
+                if (path.isNotEmpty() && path.peek() != Pair(-1, -1)) {
+                    val nextPosition = path.peek()
                     newX = nextPosition.first
                     newY = nextPosition.second
                 } else {
                     path = bfs()
-                    if (path == null) {
+                    if (path?.peek() == Pair(-1, -1)) {
                         println("$localName: All nodes visited.")
                         return
                     }
                 }
-                
+
                 if (grid.moveAgent(x, y, newX, newY, localName)) {
+                    path.poll() // Remove the position from the path
                     x = newX
                     y = newY
 
                     visitedMatrix[x][y] = true
 
                     sendPositionToAgents()
+                } else {
+                    path = bfs()
                 }
 
-                printVisitedMatrix()
-                grid.printGrid() // Optional: Print grid state after each move
+                // printVisitedMatrix()
+                grid.printGrid(localName) // Optional: Print grid state after each move
             }
         })
 
@@ -93,7 +99,7 @@ class DiscoveryAgent : Agent() {
     }
 
     // BFS to find the path to the closest unvisited node
-    private fun bfs(): Queue<Pair<Int, Int>>? {
+    private fun bfs(): Queue<Pair<Int, Int>> {
         val directions = listOf(
             Pair(0, 1), Pair(1, 0), Pair(0, -1), Pair(-1, 0)
         )
@@ -105,30 +111,42 @@ class DiscoveryAgent : Agent() {
         val visited = mutableSetOf<Pair<Int, Int>>()
         visited.add(Pair(x, y))
 
+        // Map to track the parent of each node
+        val parentMap = mutableMapOf<Pair<Int, Int>, Pair<Int, Int>?>()
+        parentMap[Pair(x, y)] = null
+
         while (queue.isNotEmpty()) {
             val (currentX, currentY) = queue.poll()
-            path.add(Pair(currentX, currentY))
+
+            // If an unvisited node is found, reconstruct the path
             if (!visitedMatrix[currentX][currentY]) {
-                return path
+                var current: Pair<Int, Int>? = Pair(currentX, currentY)
+                while (current != null) {
+                    path.add(current)
+                    current = parentMap[current]
+                }
+                return LinkedList(path.reversed()) // Reverse the path to get it from start to target
             }
 
+            // Explore neighbors
             for ((dx, dy) in directions) {
                 val neighborX = currentX + dx
                 val neighborY = currentY + dy
 
                 if (neighborX in 0 until grid.width && neighborY in 0 until grid.height) {
-                    if (Pair(neighborX, neighborY) in visited) {
-                        continue
+                    val neighbor = Pair(neighborX, neighborY)
+                    if (neighbor !in visited) {
+                        queue.add(neighbor)
+                        visited.add(neighbor)
+                        parentMap[neighbor] = Pair(currentX, currentY) // Track the parent
                     }
-
-                    queue.add(Pair(neighborX, neighborY))
-                    visited.add(Pair(neighborX, neighborY))
                 }
             }
         }
 
-        // If no unvisited node is found, return null
-        return null
+            // If no unvisited node is found, return a path with (-1, -1)
+        path.add(Pair(-1, -1))
+        return path
     }
 
     private fun registerWithDF() {
@@ -179,8 +197,6 @@ class DiscoveryAgent : Agent() {
         } catch (e: FIPAException) {
             e.printStackTrace()
         }
-
-        grid.printGrid() // Final state when agent dies
     }
 
     fun printVisitedMatrix() {

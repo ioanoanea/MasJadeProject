@@ -51,7 +51,7 @@ class GridWorld private constructor(val width: Int, val height: Int) {
         lock.unlock()
     }
 
-    fun printGrid() {
+    fun printGrid(agentName: String) {
         // lock.lock()
         // println("\nCurrent Grid State:")
         // grid.forEachIndexed { x, column ->
@@ -62,9 +62,20 @@ class GridWorld private constructor(val width: Int, val height: Int) {
         //     }
         // }
         // lock.unlock()
+
+        if(agentName != "agent1") {
+            return
+        }
+
         lock.lock()
-        println("\nCurrent Grid State:")
+        // Print the top border
+        print("+")
+        repeat(grid[0].size) { print("-") }
+        println("+")
+
+        // Print the grid with vertical borders
         grid.forEachIndexed { x, column ->
+            print("|") // Left border
             column.forEachIndexed { y, agents ->
                 if (agents.isNotEmpty()) {
                     print("X")
@@ -72,8 +83,15 @@ class GridWorld private constructor(val width: Int, val height: Int) {
                     print(" ")
                 }
             }
+            print("|") // Right border
             println()
         }
+
+        // Print the bottom border
+        print("+")
+        repeat(grid[0].size) { print("-") }
+        println("+")
+
         lock.unlock()
     }
 }
